@@ -26,6 +26,4 @@ Quick setup:
    npm run dev
 6. Open `frontend/index.html` in your browser.
 
-If you run into CORS or port issues, make sure the server is running on port 5000 and that your browser allows connecting to http://localhost:5000.
-
-# hydrant_controller
+If you run into CORS or port issues, make sure the server is running on port 5001 and that your browser allows connecting to http://localhost:5000.

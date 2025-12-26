@@ -1,163 +1,283 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Hydrant Controller Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hydrant Controller Dashboard</title>
 
-  <!-- Navbar -->
-  <nav class="bg-white text-gray-800 p-4 shadow-md flex justify-between items-center">
-    <h1 class="text-xl font-bold">Hydrant Controller Dashboard</h1>
-    <button id="openModal" class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">+ Add New Hydrant</button>
-  </nav>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
 
-  <!-- Content -->
-  <div class="flex-1 p-6">
-    <!-- Summary -->
-    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-      <div class="p-4 bg-white rounded shadow text-center">
-        <p class="text-2xl font-bold" id="totalHydrants">0</p>
-        <p>Total Hydrants</p>
+  <body class="bg-gray-100 min-h-screen flex flex-col">
+    <!-- Navbar -->
+    <nav
+      class="bg-white text-gray-800 p-4 shadow-md flex justify-between items-center"
+    >
+      <h1 class="text-xl font-bold">Hydrant Controller Dashboard</h1>
+      <button
+        class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+        id="openModal"
+        type="button"
+      >
+        + Add New Hydrant
+      </button>
+    </nav>
+
+    <!-- Content -->
+    <div class="flex-1 p-6">
+      <!-- Summary -->
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        <div class="p-4 bg-white rounded shadow text-center">
+          <p class="text-2xl font-bold" id="totalHydrants">0</p>
+          <p>Total Hydrants</p>
+        </div>
+        <div class="p-4 bg-white rounded shadow text-center">
+          <p class="text-2xl font-bold" id="defectiveHydrants">0</p>
+          <p>Defective Hydrants</p>
+        </div>
+        <div class="p-4 bg-white rounded shadow text-center">
+          <p class="text-2xl font-bold" id="checkedHydrants">0</p>
+          <p>Checked Hydrants</p>
+        </div>
+        <div class="p-4 bg-white rounded shadow text-center">
+          <p class="text-2xl font-bold" id="completionRate">0%</p>
+          <p>Inspection Completion</p>
+        </div>
       </div>
-      <div class="p-4 bg-white rounded shadow text-center">
-        <p class="text-2xl font-bold" id="defectiveHydrants">0</p>
-        <p>Defective Hydrants</p>
+
+      <!-- Table Section -->
+      <div class="bg-white p-6 rounded shadow-md mb-6">
+        <h2 class="text-lg font-semibold mb-4">Hydrant Data</h2>
+        <div class="flex gap-2 mb-4">
+          <input
+            class="border p-2 w-full rounded"
+            id="searchBar"
+            type="text"
+            placeholder="Search by hydrant, location or defect..."
+          />
+          <button
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            id="exportBtn"
+            type="button"
+          >
+            Export
+          </button>
+          <button
+            class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            id="toggleChartBtn"
+            type="button"
+          >
+            Toggle Chart
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse border" id="hydrantTable">
+            <thead class="bg-gray-50"></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex gap-2 justify-center" id="pagination"></div>
       </div>
-      <div class="p-4 bg-white rounded shadow text-center">
-        <p class="text-2xl font-bold" id="checkedHydrants">0</p>
-        <p>Checked Hydrants</p>
-      </div>
-      <div class="p-4 bg-white rounded shadow text-center">
-        <p class="text-2xl font-bold" id="completionRate">0%</p>
-        <p>Inspection Completion</p>
+
+      <!-- Chart Section -->
+      <div class="bg-white p-6 rounded shadow-md hidden" id="chartCard">
+        <h2 class="text-lg font-semibold mb-4">Defects Overview</h2>
+        <canvas id="defectChart" height="100"></canvas>
       </div>
     </div>
 
-    <!-- Table Section -->
-    <div class="bg-white p-6 rounded shadow-md mb-6">
-      <h2 class="text-lg font-semibold mb-4">Hydrant Data</h2>
-      <div class="flex gap-2 mb-4">
-        <input type="text" id="searchBar" placeholder="Search by hydrant, location or defect..." class="border p-2 w-full rounded"/>
-        <button id="exportBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Export</button>
-        <button id="toggleChartBtn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Toggle Chart</button>
+    <!-- Add Modal -->
+    <div
+      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+      id="entryModal"
+      style="display: none"
+    >
+      <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Add Hydrant Entry</h2>
+        <form class="grid grid-cols-2 gap-4" id="entryForm">
+          <input
+            class="border p-2 rounded"
+            id="hydrantName"
+            type="text"
+            placeholder="Hydrant Name"
+            required
+          />
+          <input
+            class="border p-2 rounded"
+            id="location"
+            type="text"
+            placeholder="Location"
+            required
+          />
+          <input class="border p-2 rounded" id="inspectionDate" type="date" />
+          <input
+            class="border p-2 rounded"
+            id="defects"
+            type="text"
+            placeholder="Defects (if any)"
+          />
+          <input
+            class="border p-2 rounded"
+            id="checkedBy"
+            type="text"
+            placeholder="Checked By"
+          />
+          <button
+            class="col-span-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+            type="submit"
+          >
+            Add Entry
+          </button>
+        </form>
+        <button
+          class="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+          id="closeModal"
+          type="button"
+        >
+          Close
+        </button>
       </div>
-      <div class="overflow-x-auto">
-        <table id="hydrantTable" class="w-full border-collapse border">
-          <thead class="bg-gray-50"></thead>
-          <tbody></tbody>
-        </table>
+    </div>
+
+    <!-- Edit Modal -->
+    <div
+      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+      id="editModal"
+      style="display: none"
+    >
+      <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+          Edit Hydrant Entry
+        </h2>
+        <form class="grid grid-cols-2 gap-4" id="editForm">
+          <input id="editId" type="hidden" />
+          <input
+            class="border p-2 rounded"
+            id="editHydrantName"
+            type="text"
+            placeholder="Hydrant Name"
+            required
+          />
+          <input
+            class="border p-2 rounded"
+            id="editLocation"
+            type="text"
+            placeholder="Location"
+            required
+          />
+          <input
+            class="border p-2 rounded"
+            id="editInspectionDate"
+            type="date"
+          />
+          <input
+            class="border p-2 rounded"
+            id="editDefects"
+            type="text"
+            placeholder="Defects (if any)"
+          />
+          <input
+            class="border p-2 rounded"
+            id="editCheckedBy"
+            type="text"
+            placeholder="Checked By"
+          />
+          <button
+            class="col-span-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+            type="submit"
+          >
+            Update Entry
+          </button>
+        </form>
+        <button
+          class="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+          id="closeEditModal"
+          type="button"
+        >
+          Close
+        </button>
       </div>
-      <div id="pagination" class="mt-4 flex gap-2 justify-center"></div>
     </div>
 
-    <!-- Chart Section -->
-    <div id="chartCard" class="bg-white p-6 rounded shadow-md hidden">
-      <h2 class="text-lg font-semibold mb-4">Defects Overview</h2>
-      <canvas id="defectChart" height="100"></canvas>
-    </div>
-  </div>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+      let rawData = [];
+      let chart;
+      let currentPage = 1;
+      const rowsPerPage = 8;
 
-  <!-- Add Modal -->
-  <div id="entryModal" style="display:none;" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
-      <h2 class="text-2xl font-bold text-gray-800 mb-6">Add Hydrant Entry</h2>
-      <form id="entryForm" class="grid grid-cols-2 gap-4">
-        <input type="text" id="hydrantName" placeholder="Hydrant Name" class="border p-2 rounded" required/>
-        <input type="text" id="location" placeholder="Location" class="border p-2 rounded" required/>
-        <input type="date" id="inspectionDate" class="border p-2 rounded"/>
-        <input type="text" id="defects" placeholder="Defects (if any)" class="border p-2 rounded"/>
-        <input type="text" id="checkedBy" placeholder="Checked By" class="border p-2 rounded"/>
-        <button type="submit" class="col-span-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">Add Entry</button>
-      </form>
-      <button id="closeModal" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Close</button>
-    </div>
-  </div>
-
-  <!-- Edit Modal -->
-  <div id="editModal" style="display:none;" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
-      <h2 class="text-2xl font-bold text-gray-800 mb-6">Edit Hydrant Entry</h2>
-      <form id="editForm" class="grid grid-cols-2 gap-4">
-        <input type="hidden" id="editId"/>
-        <input type="text" id="editHydrantName" placeholder="Hydrant Name" class="border p-2 rounded" required/>
-        <input type="text" id="editLocation" placeholder="Location" class="border p-2 rounded" required/>
-        <input type="date" id="editInspectionDate" class="border p-2 rounded"/>
-        <input type="text" id="editDefects" placeholder="Defects (if any)" class="border p-2 rounded"/>
-        <input type="text" id="editCheckedBy" placeholder="Checked By" class="border p-2 rounded"/>
-        <button type="submit" class="col-span-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">Update Entry</button>
-      </form>
-      <button id="closeEditModal" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Close</button>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <script>
-    let rawData = [];
-    let chart;
-    let currentPage = 1;
-    const rowsPerPage = 8;
-
-    // Format Date
-    function formatDate(dateStr) {
-      if (!dateStr) return "";
-      const d = new Date(dateStr);
-      if (isNaN(d)) return dateStr;
-      return `${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()}`;
-    }
-
-    // Fetch hydrants
-    async function fetchHydrants() {
-      try {
-        const res = await fetch("http://localhost:5001/api/hydrants");
-        const data = await res.json();
-        rawData = data.map((d, i) => ({
-          id: d.id,
-          srNo: i + 1,
-          hydrant: d.hydrant,
-          location: d.location,
-          date: formatDate(d.inspection_date),
-          defects: d.defects || "",
-          checkedBy: d.checked_by || ""
-        }));
-        renderDashboard();
-      } catch (err) {
-        console.error("Failed to fetch hydrants:", err);
+      // Format Date
+      function formatDate(dateStr) {
+        if (!dateStr) return "";
+        const d = new Date(dateStr);
+        if (isNaN(d)) return dateStr;
+        return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
       }
-    }
 
-    function renderDashboard() {
-      updateSummaryCards();
-      updateTable();
-      if (!document.getElementById("chartCard").classList.contains("hidden")) updateChart();
-    }
+      // Fetch hydrants
+      async function fetchHydrants() {
+        try {
+          const res = await fetch("http://localhost:5001/api/hydrants");
+          const data = await res.json();
+          rawData = data.map((d, i) => ({
+            id: d.id,
+            srNo: i + 1,
+            hydrant: d.hydrant,
+            location: d.location,
+            date: formatDate(d.inspection_date),
+            defects: d.defects || "",
+            checkedBy: d.checked_by || "",
+          }));
+          renderDashboard();
+        } catch (err) {
+          console.error("Failed to fetch hydrants:", err);
+        }
+      }
 
-    // Summary Cards
-    function updateSummaryCards() {
-      const total = rawData.length;
-      const defective = rawData.filter(d=>d.defects).length;
-      const checked = rawData.filter(d=>d.checkedBy).length;
-      const rate = total ? Math.round((checked / total) * 100) : 0;
-      document.getElementById("totalHydrants").textContent = total;
-      document.getElementById("defectiveHydrants").textContent = defective;
-      document.getElementById("checkedHydrants").textContent = checked;
-      document.getElementById("completionRate").textContent = rate + "%";
-    }
+      function renderDashboard() {
+        updateSummaryCards();
+        updateTable();
+        if (!document.getElementById("chartCard").classList.contains("hidden"))
+          updateChart();
+      }
 
-    // Table & Pagination
-    function updateTable() {
-      const tbody = document.querySelector("#hydrantTable tbody");
-      const thead = document.querySelector("#hydrantTable thead");
-      thead.innerHTML = "<tr>" + ["Sr No","Hydrant","Location","Date","Defects","Checked By","Actions"].map(h=>`<th class='border p-2'>${h}</th>`).join("") + "</tr>";
-      tbody.innerHTML = "";
-      const start = (currentPage-1)*rowsPerPage;
-      const pageData = rawData.slice(start, start+rowsPerPage);
-      pageData.forEach(d=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
+      // Summary Cards
+      function updateSummaryCards() {
+        const total = rawData.length;
+        const defective = rawData.filter((d) => d.defects).length;
+        const checked = rawData.filter((d) => d.checkedBy).length;
+        const rate = total ? Math.round((checked / total) * 100) : 0;
+        document.getElementById("totalHydrants").textContent = total;
+        document.getElementById("defectiveHydrants").textContent = defective;
+        document.getElementById("checkedHydrants").textContent = checked;
+        document.getElementById("completionRate").textContent = rate + "%";
+      }
+
+      // Table & Pagination
+      function updateTable() {
+        const tbody = document.querySelector("#hydrantTable tbody");
+        const thead = document.querySelector("#hydrantTable thead");
+        thead.innerHTML =
+          "<tr>" +
+          [
+            "Sr No",
+            "Hydrant",
+            "Location",
+            "Date",
+            "Defects",
+            "Checked By",
+            "Actions",
+          ]
+            .map((h) => `<th class='border p-2'>${h}</th>`)
+            .join("") +
+          "</tr>";
+        tbody.innerHTML = "";
+        const start = (currentPage - 1) * rowsPerPage;
+        const pageData = rawData.slice(start, start + rowsPerPage);
+        pageData.forEach((d) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
           <td class="border p-2">${d.srNo}</td>
           <td class="border p-2">${d.hydrant}</td>
           <td class="border p-2">${d.location}</td>
@@ -169,141 +289,194 @@
             <button class="px-2 py-1 bg-red-600 text-white rounded deleteBtn" data-id="${d.id}">Delete</button>
           </td>
         `;
-        tbody.appendChild(tr);
-      });
-      updatePagination();
-      attachRowButtons();
-    }
-
-    function updatePagination() {
-      const totalPages = Math.ceil(rawData.length / rowsPerPage) || 1;
-      const container = document.getElementById("pagination");
-      container.innerHTML = "";
-      for (let i=1;i<=totalPages;i++){
-        const btn = document.createElement("button");
-        btn.textContent = i;
-        btn.className = `px-3 py-1 rounded ${i===currentPage?"bg-blue-500 text-white":"bg-gray-200"}`;
-        btn.onclick = ()=>{ currentPage = i; updateTable(); };
-        container.appendChild(btn);
+          tbody.appendChild(tr);
+        });
+        updatePagination();
+        attachRowButtons();
       }
-    }
 
-    function attachRowButtons(){
-      document.querySelectorAll(".deleteBtn").forEach(btn=>{
-        btn.addEventListener("click", async ()=>{
-          const id = btn.dataset.id;
-          if(confirm("Delete this hydrant?")){
-            await fetch(`http://localhost:5001/api/hydrants/${id}`, { method: "DELETE" });
-            await fetchHydrants();
+      function updatePagination() {
+        const totalPages = Math.ceil(rawData.length / rowsPerPage) || 1;
+        const container = document.getElementById("pagination");
+        container.innerHTML = "";
+        for (let i = 1; i <= totalPages; i++) {
+          const btn = document.createElement("button");
+          btn.textContent = i;
+          btn.className = `px-3 py-1 rounded ${i === currentPage ? "bg-blue-500 text-white" : "bg-gray-200"}`;
+          btn.onclick = () => {
+            currentPage = i;
+            updateTable();
+          };
+          container.appendChild(btn);
+        }
+      }
+
+      function attachRowButtons() {
+        document.querySelectorAll(".deleteBtn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = btn.dataset.id;
+            if (confirm("Delete this hydrant?")) {
+              await fetch(`http://localhost:5001/api/hydrants/${id}`, {
+                method: "DELETE",
+              });
+              await fetchHydrants();
+            }
+          });
+        });
+        document.querySelectorAll(".editBtn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            const h = rawData.find((x) => x.id == id);
+            if (!h) return;
+            document.getElementById("editId").value = id;
+            document.getElementById("editHydrantName").value = h.hydrant;
+            document.getElementById("editLocation").value = h.location;
+            document.getElementById("editInspectionDate").value = h.date
+              ? h.date.split("/").reverse().join("-")
+              : "";
+            document.getElementById("editDefects").value = h.defects;
+            document.getElementById("editCheckedBy").value = h.checkedBy;
+            document.getElementById("editModal").style.display = "flex";
+          });
+        });
+      }
+
+      // Chart
+      function updateChart() {
+        const counts = {};
+        rawData.forEach((d) => {
+          const k = d.location || "Unknown";
+          counts[k] = counts[k]
+            ? counts[k] + (d.defects ? 1 : 0)
+            : d.defects
+              ? 1
+              : 0;
+        });
+        const labels = Object.keys(counts);
+        const values = Object.values(counts);
+        const ctx = document.getElementById("defectChart").getContext("2d");
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              { label: "Defective Hydrants by Location", data: values },
+            ],
+          },
+          options: { responsive: true },
+        });
+      }
+
+      // Search
+      document
+        .getElementById("searchBar")
+        .addEventListener("input", function () {
+          const q = this.value.toLowerCase();
+          if (!q) {
+            renderDashboard();
+            return;
           }
+          const filtered = rawData.filter(
+            (d) =>
+              (d.hydrant || "").toLowerCase().includes(q) ||
+              (d.location || "").toLowerCase().includes(q) ||
+              (d.defects || "").toLowerCase().includes(q) ||
+              (d.checkedBy || "").toLowerCase().includes(q),
+          );
+          // show filtered without changing rawData
+          const old = rawData.slice();
+          rawData = filtered.map((x, i) => ({ ...x, srNo: i + 1 }));
+          currentPage = 1;
+          updateTable();
+          rawData = old;
         });
+
+      // Export
+      document.getElementById("exportBtn").addEventListener("click", () => {
+        const ws = XLSX.utils.json_to_sheet(rawData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Hydrants");
+        XLSX.writeFile(wb, "hydrants.xlsx");
       });
-      document.querySelectorAll(".editBtn").forEach(btn=>{
-        btn.addEventListener("click", ()=>{
-          const id = btn.dataset.id;
-          const h = rawData.find(x=>x.id==id);
-          if(!h) return;
-          document.getElementById("editId").value = id;
-          document.getElementById("editHydrantName").value = h.hydrant;
-          document.getElementById("editLocation").value = h.location;
-          document.getElementById("editInspectionDate").value = h.date ? h.date.split("/").reverse().join("-") : "";
-          document.getElementById("editDefects").value = h.defects;
-          document.getElementById("editCheckedBy").value = h.checkedBy;
-          document.getElementById("editModal").style.display = "flex";
+
+      // Toggle Chart
+      document
+        .getElementById("toggleChartBtn")
+        .addEventListener("click", () => {
+          const card = document.getElementById("chartCard");
+          card.classList.toggle("hidden");
+          if (!card.classList.contains("hidden")) updateChart();
         });
-      });
-    }
 
-    // Chart
-    function updateChart() {
-      const counts = {};
-      rawData.forEach(d=>{
-        const k = d.location || "Unknown";
-        counts[k] = counts[k] ? counts[k] + (d.defects ? 1 : 0) : (d.defects ? 1 : 0);
-      });
-      const labels = Object.keys(counts);
-      const values = Object.values(counts);
-      const ctx = document.getElementById("defectChart").getContext("2d");
-      if(chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: "bar",
-        data: { labels, datasets: [{ label: "Defective Hydrants by Location", data: values }] },
-        options: { responsive:true }
-      });
-    }
+      // Add
+      document
+        .getElementById("entryForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+          const payload = {
+            hydrant: document.getElementById("hydrantName").value,
+            location: document.getElementById("location").value,
+            inspection_date:
+              document.getElementById("inspectionDate").value || null,
+            defects: document.getElementById("defects").value || null,
+            checked_by: document.getElementById("checkedBy").value || null,
+          };
+          await fetch("http://localhost:5001/api/hydrants", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          document.getElementById("entryModal").style.display = "none";
+          this.reset();
+          await fetchHydrants();
+        });
 
-    // Search
-    document.getElementById("searchBar").addEventListener("input", function(){
-      const q = this.value.toLowerCase();
-      if(!q) { renderDashboard(); return; }
-      const filtered = rawData.filter(d =>
-        (d.hydrant||"").toLowerCase().includes(q) ||
-        (d.location||"").toLowerCase().includes(q) ||
-        (d.defects||"").toLowerCase().includes(q) ||
-        (d.checkedBy||"").toLowerCase().includes(q)
-      );
-      // show filtered without changing rawData
-      const old = rawData.slice();
-      rawData = filtered.map((x,i)=>({...x, srNo: i+1}));
-      currentPage = 1;
-      updateTable();
-      rawData = old;
-    });
+      // Edit
+      document
+        .getElementById("editForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+          const id = document.getElementById("editId").value;
+          const payload = {
+            hydrant: document.getElementById("editHydrantName").value,
+            location: document.getElementById("editLocation").value,
+            inspection_date:
+              document.getElementById("editInspectionDate").value || null,
+            defects: document.getElementById("editDefects").value || null,
+            checked_by: document.getElementById("editCheckedBy").value || null,
+          };
+          await fetch(`http://localhost:5001/api/hydrants/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          document.getElementById("editModal").style.display = "none";
+          await fetchHydrants();
+        });
 
-    // Export
-    document.getElementById("exportBtn").addEventListener("click", ()=>{
-      const ws = XLSX.utils.json_to_sheet(rawData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Hydrants");
-      XLSX.writeFile(wb, "hydrants.xlsx");
-    });
+      // Modal toggles
+      document
+        .getElementById("openModal")
+        .addEventListener(
+          "click",
+          () => (document.getElementById("entryModal").style.display = "flex"),
+        );
+      document
+        .getElementById("closeModal")
+        .addEventListener(
+          "click",
+          () => (document.getElementById("entryModal").style.display = "none"),
+        );
+      document
+        .getElementById("closeEditModal")
+        .addEventListener(
+          "click",
+          () => (document.getElementById("editModal").style.display = "none"),
+        );
 
-    // Toggle Chart
-    document.getElementById("toggleChartBtn").addEventListener("click", ()=>{
-      const card = document.getElementById("chartCard");
-      card.classList.toggle("hidden");
-      if(!card.classList.contains("hidden")) updateChart();
-    });
-
-    // Add
-    document.getElementById("entryForm").addEventListener("submit", async function(e){
-      e.preventDefault();
-      const payload = {
-        hydrant: document.getElementById("hydrantName").value,
-        location: document.getElementById("location").value,
-        inspection_date: document.getElementById("inspectionDate").value || null,
-        defects: document.getElementById("defects").value || null,
-        checked_by: document.getElementById("checkedBy").value || null
-      };
-      await fetch("http://localhost:5001/api/hydrants", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload) });
-      document.getElementById("entryModal").style.display = "none";
-      this.reset();
-      await fetchHydrants();
-    });
-
-    // Edit
-    document.getElementById("editForm").addEventListener("submit", async function(e){
-      e.preventDefault();
-      const id = document.getElementById("editId").value;
-      const payload = {
-        hydrant: document.getElementById("editHydrantName").value,
-        location: document.getElementById("editLocation").value,
-        inspection_date: document.getElementById("editInspectionDate").value || null,
-        defects: document.getElementById("editDefects").value || null,
-        checked_by: document.getElementById("editCheckedBy").value || null
-      };
-      await fetch(`http://localhost:5001/api/hydrants/${id}`, { method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload) });
-      document.getElementById("editModal").style.display = "none";
-      await fetchHydrants();
-    });
-
-    // Modal toggles
-    document.getElementById("openModal").addEventListener("click", ()=> document.getElementById("entryModal").style.display = "flex");
-    document.getElementById("closeModal").addEventListener("click", ()=> document.getElementById("entryModal").style.display = "none");
-    document.getElementById("closeEditModal").addEventListener("click", ()=> document.getElementById("editModal").style.display = "none");
-
-    // initial load
-    fetchHydrants();
-  </script>
-</body>
+      // initial load
+      fetchHydrants();
+    </script>
+  </body>
 </html>
