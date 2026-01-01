@@ -12,8 +12,10 @@
   "author": "Harshit Gupta, Deepak Chauhan",
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^4.18.2",
-    "mysql2": "^3.3.0"
+    "mysql2": "^3.3.0",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

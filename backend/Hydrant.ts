@@ -1,15 +1,17 @@
+import * as z from "zod";
+
 import { type RowDataPacket } from "mysql2/promise";
 
-interface Hydrant {
-  hydrant: string;
-  inspection_location: string;
-  inspection_date: Date | null;
-  defects: string | null;
-  checked_by: string | null;
-}
+const Hydrant = z.object({
+  hydrant: z.string(),
+  location: z.string(),
+  inspection_date: z.nullable(z.date()),
+  defects: z.nullable(z.string()),
+  checked_by: z.nullable(z.string()),
+});
 
-interface HydrantReq extends Omit<Hydrant, "inspection_location"> {
-  location: string;
+interface HydrantResp extends z.input<typeof Hydrant> {
+  id: number;
 }
 
 interface HydrantRow extends RowDataPacket {
@@ -22,4 +24,4 @@ interface HydrantRow extends RowDataPacket {
   checked_by?: string;
 }
 
-export type { Hydrant, HydrantReq, HydrantRow };
+export { Hydrant, type HydrantResp, type HydrantRow };

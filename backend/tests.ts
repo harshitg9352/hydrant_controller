@@ -2,8 +2,9 @@ import { after, afterEach, test } from "node:test";
 import assert from "node:assert";
 
 import mysql, { type ResultSetHeader } from "mysql2/promise";
+import * as z from "zod";
 
-import type { Hydrant, HydrantReq, HydrantRow } from "./Hydrant.ts";
+import { Hydrant, type HydrantRow } from "./Hydrant.ts";
 import type { HistoryRow } from "./History.ts";
 
 const DB_CONFIG: mysql.PoolOptions = {
@@ -58,7 +59,7 @@ async function getHistoryId(): Promise<number> {
 }
 
 test("on creating hydrant, hydrant gets history_id", async () => {
-  const hydrantToCreate: HydrantReq = {
+  const hydrantToCreate: z.infer<typeof Hydrant> = {
     hydrant: "hydrant 1",
     location: "location 1",
     inspection_date: null,
@@ -75,7 +76,7 @@ test("on creating hydrant, hydrant gets history_id", async () => {
       body: JSON.stringify(hydrantToCreate),
     },
   );
-  assert.strictEqual(hydrantCreateResp.status, 200);
+  assert.strictEqual(hydrantCreateResp.status, 201);
 
   const historyIdFromHydrant: number = await getHistoryIdFromHydrant();
   const historyId: number = await getHistoryId();
@@ -83,14 +84,14 @@ test("on creating hydrant, hydrant gets history_id", async () => {
   assert.strictEqual(historyIdFromHydrant, historyId);
 });
 
-async function createHydrant(hydrant: Hydrant) {
+async function createHydrant(hydrant: z.infer<typeof Hydrant>) {
   const [historyQueryResult] = await pool.query<ResultSetHeader>(
     `INSERT INTO history
       (action, hydrant, location, inspection_date, defects, checked_by)
       VALUES ('create', ?, ?, ?, ?, ?)`,
     [
       hydrant.hydrant,
-      hydrant.inspection_location,
+      hydrant.location,
       hydrant.inspection_date,
       hydrant.defects,
       hydrant.checked_by,
@@ -103,7 +104,7 @@ async function createHydrant(hydrant: Hydrant) {
     [
       historyQueryResult.insertId,
       hydrant.hydrant,
-      hydrant.inspection_location,
+      hydrant.location,
       hydrant.inspection_date,
       hydrant.defects,
       hydrant.checked_by,
@@ -153,22 +154,22 @@ async function getLatestHistoryItem(): Promise<HistoryRow> {
 }
 
 test("on updating hydrant, hydrant gets latest history_id", async () => {
-  const hydrantToCreate: Hydrant = {
+  const hydrantToCreate: z.infer<typeof Hydrant> = Hydrant.parse({
     hydrant: "hydrant 1",
-    inspection_location: "location 1",
+    location: "location 1",
     inspection_date: null,
     defects: null,
     checked_by: null,
-  };
+  });
   const creationQueryResult: mysql.QueryResult =
     await createHydrant(hydrantToCreate);
 
   const hydrantId: number = creationQueryResult.insertId;
 
-  const hydrantWithUpdatedValues: HydrantReq = {
+  const hydrantWithUpdatedValues: z.infer<typeof Hydrant> = {
     ...hydrantToCreate,
     hydrant: "hydrant updated",
-    location: hydrantToCreate.inspection_location,
+    location: hydrantToCreate.location,
   };
 
   const hydrantUpdateResp: Response = await fetch(
