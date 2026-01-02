@@ -1,22 +1,24 @@
 import cors from "cors";
-import express from "express";
-import mysql, { type PoolOptions, type ResultSetHeader } from "mysql2/promise";
-import * as z from "zod";
+import express, { type Request, type Response, type NextFunction } from "express";
 import "dotenv/config";
+import * as z from "zod";
+import mysql, { type PoolOptions } from "mysql2/promise";
+import asyncHandler from "express-async-handler";
 
+import { Hydrant, type HydrantResp, type HydrantRow } from "./Hydrant.ts";
 import HydrantService from "./HydrantService.ts";
-import { Hydrant, type HydrantResp, type HydrantRow } from "./Hydrant.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const dbHost: string =
-  z.nullable(z.string()).parse(process.env["DB_HOST"]) ?? "localhost";
+  z.string().default("localhost").parse(process.env["DB_HOST"]);
 const dbUser: string =
-  z.nullable(z.string()).parse(process.env["DB_USER"]) ?? "root";
+  z.string().default("root").parse(process.env["DB_USER"]);
 const dbPassword: string =
-  z.nullable(z.string()).parse(process.env["DB_PASSWORD"]) ?? "9352785297";
+  z.string().default("9352785297").parse(process.env["DB_PASSWORD"]);
+const port: number = z.coerce.number().default(5001).parse(process.env["PORT"]);
 
 const DB_CONFIG: PoolOptions = {
   host: dbHost,
@@ -31,73 +33,60 @@ const DB_CONFIG: PoolOptions = {
 const pool: mysql.Pool = mysql.createPool(DB_CONFIG);
 const hydrantService: HydrantService = new HydrantService(pool);
 
-app.get("/api/hydrants", async (_, res) => {
+app.get("/api/hydrants", asyncHandler(async (_, res) => {
   const hydrants: HydrantRow[] = await hydrantService.findAll();
   res.json(hydrants);
-});
+}));
 
-app.post("/api/hydrants", async (req, res) => {
-  try {
-    const newHydrant: z.infer<typeof Hydrant> = Hydrant.parse(req.body);
-    const createdHydrant: HydrantResp = await hydrantService.create(newHydrant);
-    return res.status(201).json(createdHydrant);
-  } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json(error.issues);
-    } else {
-      throw error;
-    }
+app.post("/api/hydrants", asyncHandler(async (req, res) => {
+  const newHydrant: z.infer<typeof Hydrant> = Hydrant.parse(req.body);
+  const createdHydrant: HydrantResp = await hydrantService.create(newHydrant);
+  res.status(201).json(createdHydrant);
+}));
+
+app.put("/api/hydrants/:id", asyncHandler(async (req, res) => {
+  const id = z.coerce.number().positive().parse(req.params["id"]);
+  const updatedHydrant: z.infer<typeof Hydrant> = Hydrant.parse(req.body);
+
+  const result: HydrantResp | null = await hydrantService.update(
+    id,
+    updatedHydrant,
+  );
+
+  if (result === null) {
+    res.status(404).json(`Hydrant with id: ${id} not found`);
+    return;
   }
-});
+  res.json(result);
+}));
 
-app.put("/api/hydrants/:id", async (req, res) => {
-  try {
-    const id = z.coerce.number().positive().parse(req.params["id"]);
-    const updatedHydrant: z.infer<typeof Hydrant> = Hydrant.parse(req.body);
+app.delete("/api/hydrants/:id", asyncHandler(async (req, res) => {
+  const id = z.coerce.number().positive().parse(req.params["id"]);
 
-    const result: HydrantResp | null = await hydrantService.update(
-      id,
-      updatedHydrant,
-    );
+  const success: boolean = await hydrantService.delete(id);
 
-    if (result === null) {
-      return res.status(404).json(`Hydrant with id: ${id} not found`);
-    }
-    return res.json(result);
-  } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json(error.issues);
-    } else {
-      throw error;
-    }
+  if (success === false) {
+    res.status(404).json(`Hydrant with id: ${id} not found`);
+    return;
   }
-});
+  res.json({ message: "Hydrant deleted", id });
+}));
 
-app.delete("/api/hydrants/:id", async (req, res) => {
-  try {
-    const id = z.coerce.number().positive().parse(req.params["id"]);
-
-    const success: boolean = await hydrantService.delete(id);
-
-    if (success === false) {
-      return res.status(404).json(`Hydrant with id: ${id} not found`);
-    }
-    return res.json({ message: "Hydrant deleted", id });
-  } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json(error.issues);
-    } else {
-      throw error;
-    }
-  }
-});
-
-app.get("/api/history", async (_, res) => {
+app.get("/api/history", asyncHandler(async (_, res) => {
   const history = await hydrantService.getHistory();
   res.json(history);
+}));
+
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof z.ZodError) {
+    res.status(400).json(err.issues);
+    return;
+  }
+  
+  console.error(err);
+  res.sendStatus(500);
 });
 
-const PORT = process.env["PORT"] || 5001;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
 });

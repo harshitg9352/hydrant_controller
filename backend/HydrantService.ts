@@ -1,8 +1,8 @@
 import mysql, { type ResultSetHeader } from "mysql2/promise";
 import * as z from "zod";
 
-import { Hydrant, type HydrantResp, type HydrantRow } from "./Hydrant.js";
-import { type HistoryRow } from "./History.js";
+import { Hydrant, type HydrantResp, type HydrantRow } from "./Hydrant.ts";
+import { type HistoryRow } from "./History.ts";
 
 class HydrantService {
   private pool: mysql.Pool;
@@ -22,111 +22,149 @@ class HydrantService {
   }
 
   async create(newHydrant: z.output<typeof Hydrant>): Promise<HydrantResp> {
-    const [historyQueryResult] = await this.pool.query<ResultSetHeader>(
-      `INSERT INTO history
-      (action, hydrant, location, inspection_date, defects, checked_by)
-      VALUES ('create', ?, ?, ?, ?, ?)`,
-      [
-        newHydrant.hydrant,
-        newHydrant.location,
-        newHydrant.inspection_date,
-        newHydrant.defects,
-        newHydrant.checked_by,
-      ],
-    );
+    const conn: mysql.PoolConnection = await this.pool.getConnection();
+    await conn.beginTransaction();
 
-    const [creationQueryResult] = await this.pool.query<ResultSetHeader>(
-      `INSERT INTO hydrants
-      (history_id, hydrant, location, inspection_date, defects, checked_by)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        historyQueryResult.insertId,
-        newHydrant.hydrant,
-        newHydrant.location,
-        newHydrant.inspection_date,
-        newHydrant.defects,
-        newHydrant.checked_by,
-      ],
-    );
+    try {
+      const [historyQueryResult] = await conn.query<ResultSetHeader>(
+        `INSERT INTO history
+        (action, hydrant, location, inspection_date, defects, checked_by)
+        VALUES ('create', ?, ?, ?, ?, ?)`,
+        [
+          newHydrant.hydrant,
+          newHydrant.location,
+          newHydrant.inspection_date,
+          newHydrant.defects,
+          newHydrant.checked_by,
+        ],
+      );
 
-    return {
-      id: creationQueryResult.insertId,
-      ...newHydrant,
-    };
+      const [creationQueryResult] = await conn.query<ResultSetHeader>(
+        `INSERT INTO hydrants
+        (history_id, hydrant, location, inspection_date, defects, checked_by)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          historyQueryResult.insertId,
+          newHydrant.hydrant,
+          newHydrant.location,
+          newHydrant.inspection_date,
+          newHydrant.defects,
+          newHydrant.checked_by,
+        ],
+      );
+
+      conn.commit();
+
+      return {
+        id: creationQueryResult.insertId,
+        ...newHydrant,
+      };
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
   }
 
   async update(id: number, updatedHydrant: z.infer<typeof Hydrant>): Promise<HydrantResp | null> {
-    const [hydrantRows] = await this.pool.query<HydrantRow[]>(
-      `Select history_id
-      From hydrants
-      Where id = ?`,
-      [id],
-    );
+    const conn: mysql.PoolConnection = await this.pool.getConnection();
+    await conn.beginTransaction();
+    
+    try {
+      const [hydrantRows] = await conn.query<HydrantRow[]>(
+        `SELECT history_id
+        FROM hydrants
+        WHERE id = ?`,
+        [id],
+      );
 
-    const [hydrantRow] = hydrantRows;
-    if (hydrantRow === undefined) {
-      return null;
-    }
+      const [hydrantRow] = hydrantRows;
+      if (hydrantRow === undefined) {
+        conn.rollback();
+        return null;
+      }
 
-    const [historyQueryResult] = await this.pool.query<ResultSetHeader>(
-      `INSERT INTO history
-    (action, previous_event_id, hydrant, location, inspection_date, defects, checked_by)
-    VALUES ('update', ?, ?, ?, ?, ?, ?)`,
-      [
-        hydrantRow.history_id,
-        updatedHydrant.hydrant,
-        updatedHydrant.location,
-        updatedHydrant.inspection_date,
-        updatedHydrant.defects,
-        updatedHydrant.checked_by,
-      ],
-    );
+      const [historyQueryResult] = await conn.query<ResultSetHeader>(
+        `INSERT INTO history
+      (action, previous_event_id, hydrant, location, inspection_date, defects, checked_by)
+      VALUES ('update', ?, ?, ?, ?, ?, ?)`,
+        [
+          hydrantRow.history_id,
+          updatedHydrant.hydrant,
+          updatedHydrant.location,
+          updatedHydrant.inspection_date,
+          updatedHydrant.defects,
+          updatedHydrant.checked_by,
+        ],
+      );
 
-    await this.pool.query<ResultSetHeader>(
-      `UPDATE hydrants
-      SET history_id = ?, hydrant = ?, location = ?, inspection_date = ?, defects = ?, checked_by = ?
-      WHERE id = ?`,
-      [
-        historyQueryResult.insertId,
-        updatedHydrant.hydrant,
-        updatedHydrant.location,
-        updatedHydrant.inspection_date || null,
-        updatedHydrant.defects || null,
-        updatedHydrant.checked_by || null,
+      await conn.query<ResultSetHeader>(
+        `UPDATE hydrants
+        SET history_id = ?, hydrant = ?, location = ?, inspection_date = ?, defects = ?, checked_by = ?
+        WHERE id = ?`,
+        [
+          historyQueryResult.insertId,
+          updatedHydrant.hydrant,
+          updatedHydrant.location,
+          updatedHydrant.inspection_date,
+          updatedHydrant.defects,
+          updatedHydrant.checked_by,
+          id,
+        ],
+      );
+
+      conn.commit();
+
+      return {
         id,
-      ],
-    );
-
-    return {
-      id,
-      ...updatedHydrant
+        ...updatedHydrant
+      }
+    } catch (error) {
+      conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
     }
   }
 
   async delete(id: number): Promise<boolean> {
-    const [hydrantRows] = await this.pool.query<HydrantRow[]>(
-      `Select history_id From hydrants
-      Where id = ?`,
-      [id],
-    );
+    const conn: mysql.PoolConnection = await this.pool.getConnection();
+    await conn.beginTransaction();
 
-    const [hydrantRow] = hydrantRows;
-    if (hydrantRow === undefined) {
-      return false;
+    try {
+      const [hydrantRows] = await conn.query<HydrantRow[]>(
+        `SELECT history_id From hydrants
+        WHERE id = ?`,
+        [id],
+      );
+
+      const [hydrantRow] = hydrantRows;
+      if (hydrantRow === undefined) {
+        conn.rollback();
+        return false;
+      }
+
+      await conn.query<ResultSetHeader>(
+        `INSERT INTO history (action, previous_event_id)
+        VALUES ('delete', ?)`,
+        [hydrantRow.history_id],
+      );
+
+      await conn.query<ResultSetHeader>("Delete From hydrants Where id = ?", [id]);
+
+      conn.commit();
+
+      return true;
+    } catch (error) {
+      conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
     }
-
-    await this.pool.query<ResultSetHeader>(
-      `INSERT INTO history (action, previous_event_id)
-      VALUES ('delete', ?)`,
-      [hydrantRow.history_id],
-    );
-
-    await this.pool.query<ResultSetHeader>("Delete From hydrants Where id = ?", [id]);
-
-    return true;
   }
 
-  async getHistory(): Promise<HydrantRow[]> {
+  async getHistory(): Promise<HistoryRow[]> {
     const [rows] = await this.pool.query<HistoryRow[]>(
       `SELECT *
       FROM history`
